@@ -9,7 +9,7 @@
 # for additional reference on schema see:
 # https://github.com/mapbox/node-mbtiles/blob/master/lib/schema.sql
 
-import sqlite3, uuid, sys, logging, time, os, json, zlib, re
+import sqlite3, uuid, sys, logging, time, os, json, zlib, re, gzip, io
 
 logger = logging.getLogger(__name__)
 
@@ -270,9 +270,13 @@ def mbtiles_to_disk(mbtiles_file, directory_path, **kwargs):
             tile = os.path.join(tile_dir,'%03d.%s' % (int(y) % 1000, kwargs.get('format', 'png')))
         else:
             tile = os.path.join(tile_dir,'%s.%s' % (y, kwargs.get('format', 'png')))
-        f = open(tile, 'wb')
-        f.write(t[3])
-        f.close()
+        tile_data = t[3]
+        if len(tile_data) > 0:
+            f = open(tile, 'wb')
+            if kwargs.get('format') == 'pbf':
+                tile_data = gzip.GzipFile(fileobj=io.BytesIO(tile_data), mode='rb').read()
+            f.write(tile_data)
+            f.close()
         done = done + 1
         for c in msg: sys.stdout.write(chr(8))
         logger.info('%s / %s tiles exported' % (done, count))
