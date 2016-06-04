@@ -9,7 +9,7 @@
 # for additional reference on schema see:
 # https://github.com/mapbox/node-mbtiles/blob/master/lib/schema.sql
 
-import sqlite3, uuid, sys, logging, time, os, json, zlib, re, gzip, io, zipfile
+import sqlite3, uuid, sys, logging, time, os, json, zlib, re, gzip, io, zipfile, tarfile, StringIO
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +226,11 @@ def mbtiles_metadata_to_disk(mbtiles_file, **kwargs):
 def write_file(base_path, file_path, file_name, file_data):
     if type(base_path) is zipfile.ZipFile:
         base_path.writestr(os.path.join(file_path, file_name), file_data)
+    elif type(base_path) is tarfile.TarFile:
+        tarinfo = tarfile.TarInfo(os.path.join(file_path, file_name))
+        tarinfo.size = len(file_data)
+        base_path.addfile(tarinfo, StringIO.StringIO(file_data))
+        base_path.members = [] # fix memory leak
     else:
         if not os.path.isdir(os.path.join(base_path, file_path)):
             os.makedirs(os.path.join(base_path, file_path))
@@ -238,6 +243,12 @@ def mbtiles_to_disk(mbtiles_file, base_path, **kwargs):
     logger.debug("%s --> %s" % (mbtiles_file, base_path))
     if base_path.endswith('.zip'):
         base_path = zipfile.ZipFile(base_path, 'w', zipfile.ZIP_DEFLATED, True)
+    elif base_path.endswith('.tar'):
+        base_path = tarfile.open(base_path, 'w')
+    elif base_path.endswith('.tar.gz') or base_path.endswith('.tgz'):
+        base_path = tarfile.open(base_path, 'w:gz')
+    elif base_path.endswith('.tar.bz2'):
+        base_path = tarfile.open(base_path, 'w:bz2')
     con = mbtiles_connect(mbtiles_file)
     metadata = dict(con.execute('select name, value from metadata;').fetchall())
     write_file(base_path, '', 'metadata.json', json.dumps(metadata, indent=4))
