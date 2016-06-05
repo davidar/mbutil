@@ -217,11 +217,20 @@ def disk_to_mbtiles(directory_path, mbtiles_file, **kwargs):
     logger.debug('tiles (and grids) inserted.')
     optimize_database(con)
 
+def get_metadata(con):
+    d = {}
+    for k,v in con.execute('select name, value from metadata;').fetchall():
+        if k == 'json':
+            d.update(json.loads(v))
+        else:
+            d[k] = v
+    return d
+
 def mbtiles_metadata_to_disk(mbtiles_file, **kwargs):
     logger.debug("Exporting MBTiles metatdata from %s" % (mbtiles_file))
     con = mbtiles_connect(mbtiles_file)
-    metadata = dict(con.execute('select name, value from metadata;').fetchall())
-    logger.debug(json.dumps(metadata, indent=2))
+    metadata = get_metadata(con)
+    print(json.dumps(metadata, indent=2))
 
 def write_file(base_path, file_path, file_name, file_data):
     if type(base_path) is zipfile.ZipFile:
@@ -250,7 +259,7 @@ def mbtiles_to_disk(mbtiles_file, base_path, **kwargs):
     elif base_path.endswith('.tar.bz2'):
         base_path = tarfile.open(base_path, 'w:bz2')
     con = mbtiles_connect(mbtiles_file)
-    metadata = dict(con.execute('select name, value from metadata;').fetchall())
+    metadata = get_metadata(con)
     write_file(base_path, '', 'metadata.json', json.dumps(metadata, indent=4))
     count = con.execute('select count(zoom_level) from tiles;').fetchone()[0]
     done = 0
