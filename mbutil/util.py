@@ -261,6 +261,9 @@ def mbtiles_to_disk(mbtiles_file, base_path, **kwargs):
     con = mbtiles_connect(mbtiles_file)
     metadata = get_metadata(con)
     write_file(base_path, '', 'metadata.json', json.dumps(metadata, indent=4))
+    tile_format = kwargs.get('format', 'png')
+    if 'format' in metadata:
+        tile_format = metadata['format']
     count = con.execute('select count(zoom_level) from tiles;').fetchone()[0]
     done = 0
 
@@ -291,11 +294,11 @@ def mbtiles_to_disk(mbtiles_file, base_path, **kwargs):
         else:
             tile_dir = os.path.join(str(z), str(x))
         if kwargs.get('scheme') == 'wms':
-            tile = '%03d.%s' % (int(y) % 1000, kwargs.get('format', 'png'))
+            tile = '%03d.%s' % (int(y) % 1000, tile_format)
         else:
-            tile = '%s.%s' % (y, kwargs.get('format', 'png'))
+            tile = '%s.%s' % (y, tile_format)
         if len(tile_data) > 0:
-            if kwargs.get('format') == 'pbf':
+            if tile_format == 'pbf':
                 tile_data = gzip.GzipFile(fileobj=io.BytesIO(tile_data), mode='rb').read()
             write_file(base_path, tile_dir, tile, tile_data)
             done += 1
